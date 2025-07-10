@@ -1,104 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QR Scanner Auto Start</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-start p-6">
-  <h1 class="text-2xl font-bold mb-4">QR Code Scanner</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Scanner Auto Start</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+  </head>
+  <body
+    class="bg-gray-100 min-h-screen flex flex-col items-center justify-start p-6"
+  >
+    <h1 class="text-2xl font-bold mb-4">QR Code Scanner</h1>
 
-  <div class="bg-white p-4 rounded-lg shadow-md w-full max-w-md space-y-4">
-    <select id="camera-select" class="w-full p-2 border border-gray-300 rounded text-sm"></select>
+    <div class="bg-white p-4 rounded-lg shadow-md w-full max-w-md space-y-4">
+      <select
+        id="camera-select"
+        class="w-full p-2 border border-gray-300 rounded text-sm"
+      ></select>
 
-    <div class="relative w-full h-60 rounded overflow-hidden">
-      <video id="qr-video" class="w-full h-full object-cover"></video>
+      <div class="relative w-full h-60 rounded overflow-hidden">
+        <video id="qr-video" class="w-full h-full object-cover"></video>
+      </div>
+
+      <div
+        id="qr-result"
+        class="hidden text-center text-sm bg-gray-100 p-2 rounded"
+      ></div>
     </div>
 
-    <div id="qr-result" class="hidden text-center text-sm bg-gray-100 p-2 rounded"></div>
-  </div>
+    <script>
+      const videoElem = document.getElementById("qr-video");
+      const selectElem = document.getElementById("camera-select");
+      const resultElem = document.getElementById("qr-result");
 
-  <script>
-    const videoElem = document.getElementById("qr-video");
-    const selectElem = document.getElementById("camera-select");
-    const resultElem = document.getElementById("qr-result");
+      let scanner;
+      let redirected = false;
 
-    let scanner;
-    let redirected = false;
+      async function startScanner(cameraId) {
+        redirected = false;
+        stopScanner(); // pastikan hanya satu scanner aktif
 
-    async function startScanner(cameraId) {
-      redirected = false;
-      stopScanner(); // pastikan hanya satu scanner aktif
+        scanner = new QrScanner(
+          videoElem,
+          (result) => {
+            const text = result.data;
+            console.log("QR Detected:", text);
+            resultElem.classList.remove("hidden");
+            resultElem.innerHTML = `QR Berhasil: <strong>${text}</strong>`;
 
-      scanner = new QrScanner(
-        videoElem,
-        (result) => {
-          const text = result.data;
-          console.log("QR Detected:", text);
-          resultElem.classList.remove("hidden");
-          resultElem.innerHTML = `QR Berhasil: <strong>${text}</strong>`;
-
-          if (!redirected && isValidUrl(text)) {
-            redirected = true;
-            setTimeout(() => {
-              window.location.href = text;
-            }, 700);
+            if (!redirected && isValidUrl(text)) {
+              redirected = true;
+              setTimeout(() => {
+                window.location.href = text;
+              }, 700);
+            }
+          },
+          {
+            returnDetailedScanResult: true,
+            highlightScanRegion: true,
+            preferredCamera: cameraId,
           }
-        },
-        {
-          returnDetailedScanResult: true,
-          highlightScanRegion: true,
-          preferredCamera: cameraId,
+        );
+
+        await scanner.start();
+      }
+
+      function stopScanner() {
+        if (scanner) {
+          scanner.stop();
+          scanner.destroy();
+          scanner = null;
         }
-      );
-
-      await scanner.start();
-    }
-
-    function stopScanner() {
-      if (scanner) {
-        scanner.stop();
-        scanner.destroy();
-        scanner = null;
-      }
-    }
-
-    function isValidUrl(str) {
-      try {
-        const url = new URL(str);
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
-    }
-
-    QrScanner.listCameras(true).then((cameras) => {
-      if (cameras.length === 0) {
-        alert("Tidak ada kamera yang ditemukan.");
-        return;
       }
 
-      // Populate select menu
-      cameras.forEach((cam) => {
-        const opt = document.createElement("option");
-        opt.value = cam.id;
-        opt.textContent = cam.label || "Kamera tanpa nama";
-        selectElem.appendChild(opt);
+      function isValidUrl(str) {
+        try {
+          const url = new URL(str);
+          return url.protocol === "http:" || url.protocol === "https:";
+        } catch {
+          return false;
+        }
+      }
+
+      QrScanner.listCameras(true).then((cameras) => {
+        if (cameras.length === 0) {
+          alert("Tidak ada kamera yang ditemukan.");
+          return;
+        }
+
+        // Populate select menu
+        cameras.forEach((cam) => {
+          const opt = document.createElement("option");
+          opt.value = cam.id;
+          opt.textContent = cam.label || "Kamera tanpa nama";
+          selectElem.appendChild(opt);
+        });
+
+        // Start scanner dengan kamera pertama
+        const firstCameraId = cameras[0].id;
+        selectElem.value = firstCameraId;
+        startScanner(firstCameraId);
       });
 
-      // Start scanner dengan kamera pertama
-      const firstCameraId = cameras[0].id;
-      selectElem.value = firstCameraId;
-      startScanner(firstCameraId);
-    });
+      // Ganti kamera bila select berubah
+      selectElem.addEventListener("change", async () => {
+        const selectedId = selectElem.value;
 
-    // Ganti kamera bila select berubah
-    selectElem.addEventListener("change", () => {
-      const selectedId = selectElem.value;
-      startScanner(selectedId);
-    });
-  </script>
-</body>
+        if (scanner) {
+          await scanner.stop();
+          scanner.destroy();
+          scanner = null;
+        }
+
+        setTimeout(() => {
+          startScanner(selectedId);
+        }, 200); // 200ms delay
+      });
+    </script>
+  </body>
 </html>
