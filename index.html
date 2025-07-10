@@ -2,253 +2,135 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>QR Code Scanner</title>
-
-    <!-- Tailwind CSS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>QR Scanner - Nimiq</title>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- html5-qrcode -->
-    <script
-      src="https://unpkg.com/html5-qrcode"
-      type="text/javascript"
-    ></script>
+    <!-- QR Scanner ES5 UMD Version -->
+    <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
   </head>
-  <body
-    class="min-h-screen p-6 flex flex-col items-center justify-start bg-gray-100"
-  >
-    <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">
-      QR Code Scanner
-    </h1>
+  <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-start p-6">
+    <h1 class="text-2xl font-bold mb-4">QR Code Scanner</h1>
 
-    <!-- Scanner container -->
-    <div
-      id="scanner-container"
-      class="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-4 space-y-4"
-    >
-      <!-- Camera Selector -->
-      <select
-        id="camera-select"
-        class="hidden w-full p-2 border border-gray-300 rounded text-sm"
-      ></select>
+    <div class="bg-white p-4 rounded-lg shadow-md w-full max-w-md space-y-4">
+      <select id="camera-select" class="w-full p-2 border border-gray-300 rounded text-sm"></select>
 
-      <!-- Frame Overlay + Reader -->
-      <!-- Scanner + Frame -->
-      <div
-        class="relative w-full h-60 rounded-lg overflow-hidden border border-gray-300 flex items-center justify-center"
-      >
-        <div id="reader" class="absolute w-full h-full z-0"></div>
-
-        <!-- Frame overlay (ukuran 250x250 dan di tengah) -->
-        <div class="absolute w-[200px] h-[200px] z-10 pointer-events-none">
-          <!-- Sudut Kiri Atas -->
-          <div
-            class="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white"
-          ></div>
-          <!-- Sudut Kanan Atas -->
-          <div
-            class="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white"
-          ></div>
-          <!-- Sudut Kiri Bawah -->
-          <div
-            class="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white"
-          ></div>
-          <!-- Sudut Kanan Bawah -->
-          <div
-            class="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white"
-          ></div>
+      <div class="relative w-full h-60 rounded overflow-hidden">
+        <video id="qr-video" class="w-full h-full object-cover"></video>
+        <!-- Frame Overlay -->
+        <div class="absolute top-0 left-0 w-full h-full pointer-events-none">
+          <div class="absolute border-t-4 border-l-4 border-white w-6 h-6 top-2 left-2"></div>
+          <div class="absolute border-t-4 border-r-4 border-white w-6 h-6 top-2 right-2"></div>
+          <div class="absolute border-b-4 border-l-4 border-white w-6 h-6 bottom-2 left-2"></div>
+          <div class="absolute border-b-4 border-r-4 border-white w-6 h-6 bottom-2 right-2"></div>
         </div>
       </div>
 
-      <!-- Buttons -->
-      <div class="flex gap-2 justify-center">
-        <button
-          id="start-btn"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
-        >
-          Start Scanner
-        </button>
-        <button
-          id="stop-btn"
-          class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
-        >
-          Stop Scanner
-        </button>
+      <div class="flex justify-center gap-4">
+        <button id="start-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Start Scanner</button>
+        <button id="stop-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Stop Scanner</button>
+      </div>
+
+      <div id="qr-result" class="hidden text-center text-sm bg-gray-100 p-2 rounded"></div>
+
+      <div class="text-center">
+        <button id="open-link-btn" disabled class="mt-2 bg-gray-400 text-white px-4 py-2 rounded text-sm cursor-not-allowed">Buka Link dari QR</button>
       </div>
     </div>
 
-    <!-- Result -->
-    <div class="mt-4 text-center">
-      <button
-        id="open-link-btn"
-        disabled
-        class="bg-gray-400 text-white px-4 py-2 rounded text-sm cursor-not-allowed"
-      >
-        Buka Link dari QR
-      </button>
-    </div>
-
     <script>
-      const cameraSelect = document.getElementById("camera-select");
-      const qrResult = document.getElementById("qr-result");
-      const startBtn = document.getElementById("start-btn");
-      const stopBtn = document.getElementById("stop-btn");
+      const videoElem = document.getElementById("qr-video");
+      const selectElem = document.getElementById("camera-select");
+      const openLinkBtn = document.getElementById("open-link-btn");
+      let scanner;
+      let currentResult = "";
 
-      let scanner = null;
-      let selectedCameraId = null;
+      QrScanner.listCameras(true).then((cameras) => {
+        cameras.forEach((cam) => {
+          const opt = document.createElement("option");
+          opt.value = cam.id;
+          opt.textContent = cam.label || "Unnamed Camera";
+          selectElem.appendChild(opt);
+        });
 
-      function isValidUrl(text) {
+        if (cameras.length > 0) {
+          selectElem.value = cameras[0].id;
+        }
+      });
+
+      selectElem.addEventListener("change", () => {
+        restartScanner();
+      });
+
+      document.getElementById("start-btn").addEventListener("click", () => startScanner());
+      document.getElementById("stop-btn").addEventListener("click", () => stopScanner());
+      openLinkBtn.addEventListener("click", () => {
+        if (currentResult && isValidUrl(currentResult)) {
+          window.open(currentResult, "_blank");
+        }
+      });
+
+      function isValidUrl(str) {
         try {
-          const url = new URL(text);
+          const url = new URL(str);
           return url.protocol === "http:" || url.protocol === "https:";
         } catch {
           return false;
         }
       }
 
-      // function showResult(text) {
-      //   qrResult.classList.remove("hidden");
+      async function startScanner() {
+        stopScanner();
 
-      //   if (isValidUrl(text)) {
-      //     // Tampilkan link
-      //     qrResult.innerHTML = `🔗 QR berisi link:<br><a href="${text}" target="_blank" class="text-blue-600 underline">${text}</a><br>⏳ Membuka halaman...`;
+        const selectedId = selectElem.value;
+        scanner = new QrScanner(
+          videoElem,
+          (result) => {
+            console.log("QR Detected:", result);
+            currentResult = result;
+            showResult(result);
+          },
+          {
+            returnDetailedScanResult: false,
+            highlightScanRegion: true,
+            preferredCamera: selectedId,
+          }
+        );
 
-      //     // Lakukan redirect otomatis (buka di tab baru)
-      //     setTimeout(() => {
-      //       window.open(text, "_blank");
-      //     }, 1000);
-      //   } else {
-      //     qrResult.innerHTML = `📄 QR berisi teks biasa:<br><strong>${text}</strong>`;
-      //   }
-      // }
-
-      let lastQrUrl = "";
-
-      function showResult(text) {
-        qrResult.classList.remove("hidden");
-
-        if (isValidUrl(text)) {
-          lastQrUrl = text;
-
-          document.getElementById("open-link-btn").disabled = false;
-          document
-            .getElementById("open-link-btn")
-            .classList.remove("bg-gray-400", "cursor-not-allowed");
-          document
-            .getElementById("open-link-btn")
-            .classList.add(
-              "bg-green-600",
-              "hover:bg-green-700",
-              "cursor-pointer"
-            );
-
-          qrResult.innerHTML = `
-      🔗 Link terdeteksi:<br>
-      <span class="text-blue-600 break-all underline">${text}</span>
-    `;
-        } else {
-          qrResult.innerHTML = `
-      📄 QR berisi teks biasa:<br>
-      <strong>${text}</strong>
-    `;
-        }
-      }
-
-      document.getElementById("open-link-btn").addEventListener("click", () => {
-        if (lastQrUrl) {
-          window.open(lastQrUrl, "_blank");
-        }
-      });
-
-      function startScanner(cameraId) {
-        if (!cameraId) return;
-
-        const html5QrCode = new Html5Qrcode("reader");
-        let lastScanned = "";
-
-        html5QrCode
-          .start(
-            cameraId,
-            {
-              fps: 10,
-              qrbox: { width: 250, height: 250 },
-            },
-            (decodedText) => {
-              if (decodedText !== lastScanned) {
-                lastScanned = decodedText;
-                console.log("✅ QR Detected:", decodedText);
-                showResult(decodedText);
-              }
-            },
-            (error) => {
-              // Uncomment saat debugging
-              // console.warn("No QR code found:", error);
-            }
-          )
-          .then(() => {
-            const video = document.querySelector("#reader video");
-            if (video) {
-              video.style.width = "100%";
-              video.style.height = "100%";
-              video.style.objectFit = "cover";
-            }
-          });
-
-        scanner = html5QrCode;
+        await scanner.start();
       }
 
       function stopScanner() {
         if (scanner) {
-          scanner.stop().then(() => {
-            scanner.clear();
-            scanner = null;
-          });
+          scanner.stop();
+          scanner.destroy();
+          scanner = null;
         }
       }
 
-      function initScanner() {
-        Html5Qrcode.getCameras()
-          .then((devices) => {
-            if (devices.length === 0) {
-              alert("Tidak ada kamera terdeteksi.");
-              return;
-            }
-
-            selectedCameraId = devices[0].id;
-
-            if (devices.length > 1) {
-              cameraSelect.classList.remove("hidden");
-              devices.forEach((device) => {
-                const option = document.createElement("option");
-                option.value = device.id;
-                option.textContent = device.label || `Camera ${device.id}`;
-                cameraSelect.appendChild(option);
-              });
-              cameraSelect.value = selectedCameraId;
-
-              cameraSelect.addEventListener("change", (e) => {
-                selectedCameraId = e.target.value;
-                stopScanner();
-                startScanner(selectedCameraId);
-              });
-            }
-
-            startScanner(selectedCameraId);
-          })
-          .catch((err) => {
-            console.error("Gagal mendapatkan kamera:", err);
-          });
+      function restartScanner() {
+        stopScanner();
+        startScanner();
       }
 
-      // Event listeners
-      startBtn.addEventListener("click", () => {
-        if (selectedCameraId) startScanner(selectedCameraId);
-      });
+      function showResult(text) {
+        const resultElem = document.getElementById("qr-result");
+        resultElem.classList.remove("hidden");
 
-      stopBtn.addEventListener("click", stopScanner);
-
-      // Init
-      window.addEventListener("DOMContentLoaded", initScanner);
+        if (isValidUrl(text)) {
+          resultElem.innerHTML = `
+            🔗 Link terdeteksi:<br>
+            <span class="text-blue-600 break-words underline">${text}</span>
+          `;
+          openLinkBtn.disabled = false;
+          openLinkBtn.classList.remove("bg-gray-400", "cursor-not-allowed");
+          openLinkBtn.classList.add("bg-green-600", "hover:bg-green-700", "cursor-pointer");
+        } else {
+          resultElem.innerHTML = `
+            📄 QR berisi teks:<br>
+            <strong>${text}</strong>
+          `;
+        }
+      }
     </script>
   </body>
 </html>
