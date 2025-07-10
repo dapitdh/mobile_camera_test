@@ -105,20 +105,13 @@
         qrResult.classList.remove("hidden");
 
         if (isValidUrl(text)) {
-          qrResult.innerHTML = `🔗 QR berisi link:<br><a href="${text}" target="_blank" class="text-blue-600 underline">${text}</a><br>⏳ Sedang fetch...`;
+          // Tampilkan link
+          qrResult.innerHTML = `🔗 QR berisi link:<br><a href="${text}" target="_blank" class="text-blue-600 underline">${text}</a><br>⏳ Membuka halaman...`;
 
-          // Fetch isi dari URL
-          fetch(text)
-            .then((res) => res.text()) // kamu juga bisa pakai `.json()` jika isinya JSON
-            .then((data) => {
-              qrResult.innerHTML += `<pre class="mt-2 text-left bg-gray-100 p-2 rounded max-h-60 overflow-y-auto text-xs whitespace-pre-wrap">${data.slice(
-                0,
-                1000
-              )}</pre>`;
-            })
-            .catch((err) => {
-              qrResult.innerHTML += `<p class="text-red-500 mt-2">Gagal fetch: ${err.message}</p>`;
-            });
+          // Lakukan redirect otomatis (buka di tab baru)
+          setTimeout(() => {
+            window.open(text, "_blank");
+          }, 1000);
         } else {
           qrResult.innerHTML = `📄 QR berisi teks biasa:<br><strong>${text}</strong>`;
         }
