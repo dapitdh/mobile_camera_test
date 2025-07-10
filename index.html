@@ -3,28 +3,78 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>QR Code Scanner Testing</title>
+    <title>QR Code Scanner</title>
 
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- html5-qrcode via CDN -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- html5-qrcode -->
+    <script
+      src="https://unpkg.com/html5-qrcode"
+      type="text/javascript"
+    ></script>
   </head>
-  <body class="min-h-screen p-6 flex flex-col items-center justify-start bg-gray-100">
-    <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">QR Code Scanner</h1>
+  <body
+    class="min-h-screen p-6 flex flex-col items-center justify-start bg-gray-100"
+  >
+    <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+      QR Code Scanner
+    </h1>
 
-    <!-- QR Scanner Container -->
-    <div id="scanner-container" class="w-full h-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-4 space-y-4">
+    <!-- Scanner container -->
+    <div
+      id="scanner-container"
+      class="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-4 space-y-4"
+    >
+      <!-- Camera Selector -->
       <select
         id="camera-select"
         class="hidden w-full p-2 border border-gray-300 rounded text-sm"
       ></select>
 
+      <!-- Frame Overlay + Reader -->
+      <!-- Scanner + Frame -->
       <div
-        id="reader"
-        class="w-full h-60 rounded-lg overflow-hidden"
-      ></div>
+        class="relative w-full h-60 rounded-lg overflow-hidden border border-gray-300 flex items-center justify-center"
+      >
+        <div id="reader" class="absolute w-full h-full z-0"></div>
+
+        <!-- Frame overlay (ukuran 250x250 dan di tengah) -->
+        <div class="absolute w-[200px] h-[200px] z-10 pointer-events-none">
+          <!-- Sudut Kiri Atas -->
+          <div
+            class="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white"
+          ></div>
+          <!-- Sudut Kanan Atas -->
+          <div
+            class="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white"
+          ></div>
+          <!-- Sudut Kiri Bawah -->
+          <div
+            class="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white"
+          ></div>
+          <!-- Sudut Kanan Bawah -->
+          <div
+            class="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex gap-2 justify-center">
+        <button
+          id="start-btn"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+        >
+          Start Scanner
+        </button>
+        <button
+          id="stop-btn"
+          class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+        >
+          Stop Scanner
+        </button>
+      </div>
     </div>
 
     <!-- Result -->
@@ -36,7 +86,11 @@
     <script>
       const cameraSelect = document.getElementById("camera-select");
       const qrResult = document.getElementById("qr-result");
+      const startBtn = document.getElementById("start-btn");
+      const stopBtn = document.getElementById("stop-btn");
+
       let scanner = null;
+      let selectedCameraId = null;
 
       function showResult(text) {
         qrResult.textContent = `Hasil QR: ${text}`;
@@ -44,6 +98,8 @@
       }
 
       function startScanner(cameraId) {
+        if (!cameraId) return;
+
         const html5QrCode = new Html5Qrcode("reader");
 
         html5QrCode
@@ -57,9 +113,7 @@
               showResult(decodedText);
               html5QrCode.stop().then(() => html5QrCode.clear());
             },
-            (error) => {
-              // error handling (optional)
-            }
+            (error) => {}
           )
           .then(() => {
             const video = document.querySelector("#reader video");
@@ -73,6 +127,15 @@
         scanner = html5QrCode;
       }
 
+      function stopScanner() {
+        if (scanner) {
+          scanner.stop().then(() => {
+            scanner.clear();
+            scanner = null;
+          });
+        }
+      }
+
       function initScanner() {
         Html5Qrcode.getCameras()
           .then((devices) => {
@@ -80,6 +143,8 @@
               alert("Tidak ada kamera terdeteksi.");
               return;
             }
+
+            selectedCameraId = devices[0].id;
 
             if (devices.length > 1) {
               cameraSelect.classList.remove("hidden");
@@ -89,31 +154,30 @@
                 option.textContent = device.label || `Camera ${device.id}`;
                 cameraSelect.appendChild(option);
               });
+              cameraSelect.value = selectedCameraId;
 
-              cameraSelect.addEventListener("change", () => {
-                if (scanner) {
-                  scanner.stop().then(() => {
-                    scanner.clear();
-                    startScanner(cameraSelect.value);
-                  });
-                } else {
-                  startScanner(cameraSelect.value);
-                }
+              cameraSelect.addEventListener("change", (e) => {
+                selectedCameraId = e.target.value;
+                stopScanner();
+                startScanner(selectedCameraId);
               });
-            } else {
-              cameraSelect.classList.add("hidden");
             }
 
-            const defaultCameraId = devices[0].id;
-            if (devices.length > 1) cameraSelect.value = defaultCameraId;
-            startScanner(defaultCameraId);
+            startScanner(selectedCameraId);
           })
           .catch((err) => {
             console.error("Gagal mendapatkan kamera:", err);
           });
       }
 
-      // Inisialisasi scanner setelah DOM ready
+      // Event listeners
+      startBtn.addEventListener("click", () => {
+        if (selectedCameraId) startScanner(selectedCameraId);
+      });
+
+      stopBtn.addEventListener("click", stopScanner);
+
+      // Init on load
       window.addEventListener("DOMContentLoaded", initScanner);
     </script>
   </body>
