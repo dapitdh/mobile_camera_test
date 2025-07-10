@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QR Scanner Auto Redirect</title>
+  <title>QR Scanner Auto Start</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
 </head>
@@ -17,11 +17,6 @@
       <video id="qr-video" class="w-full h-full object-cover"></video>
     </div>
 
-    <div class="flex justify-center gap-4">
-      <button id="start-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Start Scanner</button>
-      <button id="stop-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Stop Scanner</button>
-    </div>
-
     <div id="qr-result" class="hidden text-center text-sm bg-gray-100 p-2 rounded"></div>
   </div>
 
@@ -33,31 +28,10 @@
     let scanner;
     let redirected = false;
 
-    QrScanner.listCameras(true).then((cameras) => {
-      cameras.forEach((cam) => {
-        const opt = document.createElement("option");
-        opt.value = cam.id;
-        opt.textContent = cam.label || "Unnamed Camera";
-        selectElem.appendChild(opt);
-      });
-
-      if (cameras.length > 0) {
-        selectElem.value = cameras[0].id;
-      }
-    });
-
-    selectElem.addEventListener("change", () => {
-      restartScanner();
-    });
-
-    document.getElementById("start-btn").addEventListener("click", () => startScanner());
-    document.getElementById("stop-btn").addEventListener("click", () => stopScanner());
-
-    async function startScanner() {
-      stopScanner();
+    async function startScanner(cameraId) {
       redirected = false;
+      stopScanner(); // pastikan hanya satu scanner aktif
 
-      const selectedId = selectElem.value;
       scanner = new QrScanner(
         videoElem,
         (result) => {
@@ -66,18 +40,17 @@
           resultElem.classList.remove("hidden");
           resultElem.innerHTML = `QR Berhasil: <strong>${text}</strong>`;
 
-          // Redirect otomatis jika valid URL
           if (!redirected && isValidUrl(text)) {
             redirected = true;
             setTimeout(() => {
               window.location.href = text;
-            }, 500); // delay sedikit agar hasil terlihat
+            }, 700);
           }
         },
         {
           returnDetailedScanResult: true,
           highlightScanRegion: true,
-          preferredCamera: selectedId,
+          preferredCamera: cameraId,
         }
       );
 
@@ -92,11 +65,6 @@
       }
     }
 
-    function restartScanner() {
-      stopScanner();
-      startScanner();
-    }
-
     function isValidUrl(str) {
       try {
         const url = new URL(str);
@@ -105,6 +73,32 @@
         return false;
       }
     }
+
+    QrScanner.listCameras(true).then((cameras) => {
+      if (cameras.length === 0) {
+        alert("Tidak ada kamera yang ditemukan.");
+        return;
+      }
+
+      // Populate select menu
+      cameras.forEach((cam) => {
+        const opt = document.createElement("option");
+        opt.value = cam.id;
+        opt.textContent = cam.label || "Kamera tanpa nama";
+        selectElem.appendChild(opt);
+      });
+
+      // Start scanner dengan kamera pertama
+      const firstCameraId = cameras[0].id;
+      selectElem.value = firstCameraId;
+      startScanner(firstCameraId);
+    });
+
+    // Ganti kamera bila select berubah
+    selectElem.addEventListener("change", () => {
+      const selectedId = selectElem.value;
+      startScanner(selectedId);
+    });
   </script>
 </body>
 </html>
