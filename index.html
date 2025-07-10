@@ -121,15 +121,23 @@
         qrResult.classList.remove("hidden");
 
         if (isValidUrl(text)) {
-          // Menampilkan link sebagai tautan yang bisa diklik
+          // Simpan ke variabel global kalau ingin digunakan di luar
+          window.lastQrUrl = text;
+
           qrResult.innerHTML = `
       🔗 QR berisi link:<br>
-      <a href="${text}" target="_blank" class="text-blue-600 underline break-words">
-        ${text}
-      </a>
+      <a href="${text}" target="_blank" class="text-blue-600 underline break-words">${text}</a>
+
+      <div class="mt-3">
+        <button
+          onclick="window.open('${text}', '_blank')"
+          class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition text-sm"
+        >
+          Buka Link
+        </button>
+      </div>
     `;
         } else {
-          // Jika bukan URL, tampilkan sebagai teks biasa
           qrResult.innerHTML = `
       📄 QR berisi teks biasa:<br>
       <strong>${text}</strong>
@@ -141,6 +149,7 @@
         if (!cameraId) return;
 
         const html5QrCode = new Html5Qrcode("reader");
+        let lastScanned = "";
 
         html5QrCode
           .start(
@@ -150,10 +159,16 @@
               qrbox: { width: 250, height: 250 },
             },
             (decodedText) => {
-              showResult(decodedText);
-              html5QrCode.stop().then(() => html5QrCode.clear());
+              if (decodedText !== lastScanned) {
+                lastScanned = decodedText;
+                console.log("✅ QR Detected:", decodedText);
+                showResult(decodedText);
+              }
             },
-            (error) => {}
+            (error) => {
+              // Uncomment saat debugging
+              // console.warn("No QR code found:", error);
+            }
           )
           .then(() => {
             const video = document.querySelector("#reader video");
