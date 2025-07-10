@@ -101,19 +101,39 @@
         }
       }
 
+      // function showResult(text) {
+      //   qrResult.classList.remove("hidden");
+
+      //   if (isValidUrl(text)) {
+      //     // Tampilkan link
+      //     qrResult.innerHTML = `🔗 QR berisi link:<br><a href="${text}" target="_blank" class="text-blue-600 underline">${text}</a><br>⏳ Membuka halaman...`;
+
+      //     // Lakukan redirect otomatis (buka di tab baru)
+      //     setTimeout(() => {
+      //       window.open(text, "_blank");
+      //     }, 1000);
+      //   } else {
+      //     qrResult.innerHTML = `📄 QR berisi teks biasa:<br><strong>${text}</strong>`;
+      //   }
+      // }
+
       function showResult(text) {
         qrResult.classList.remove("hidden");
 
         if (isValidUrl(text)) {
-          // Tampilkan link
-          qrResult.innerHTML = `🔗 QR berisi link:<br><a href="${text}" target="_blank" class="text-blue-600 underline">${text}</a><br>⏳ Membuka halaman...`;
-
-          // Lakukan redirect otomatis (buka di tab baru)
-          setTimeout(() => {
-            window.open(text, "_blank");
-          }, 1000);
+          // Menampilkan link sebagai tautan yang bisa diklik
+          qrResult.innerHTML = `
+      🔗 QR berisi link:<br>
+      <a href="${text}" target="_blank" class="text-blue-600 underline break-words">
+        ${text}
+      </a>
+    `;
         } else {
-          qrResult.innerHTML = `📄 QR berisi teks biasa:<br><strong>${text}</strong>`;
+          // Jika bukan URL, tampilkan sebagai teks biasa
+          qrResult.innerHTML = `
+      📄 QR berisi teks biasa:<br>
+      <strong>${text}</strong>
+    `;
         }
       }
 
