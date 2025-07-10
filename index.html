@@ -92,9 +92,36 @@
       let scanner = null;
       let selectedCameraId = null;
 
+      function isValidUrl(text) {
+        try {
+          const url = new URL(text);
+          return url.protocol === "http:" || url.protocol === "https:";
+        } catch {
+          return false;
+        }
+      }
+
       function showResult(text) {
-        qrResult.textContent = `Hasil QR: ${text}`;
         qrResult.classList.remove("hidden");
+
+        if (isValidUrl(text)) {
+          qrResult.innerHTML = `🔗 QR berisi link:<br><a href="${text}" target="_blank" class="text-blue-600 underline">${text}</a><br>⏳ Sedang fetch...`;
+
+          // Fetch isi dari URL
+          fetch(text)
+            .then((res) => res.text()) // kamu juga bisa pakai `.json()` jika isinya JSON
+            .then((data) => {
+              qrResult.innerHTML += `<pre class="mt-2 text-left bg-gray-100 p-2 rounded max-h-60 overflow-y-auto text-xs whitespace-pre-wrap">${data.slice(
+                0,
+                1000
+              )}</pre>`;
+            })
+            .catch((err) => {
+              qrResult.innerHTML += `<p class="text-red-500 mt-2">Gagal fetch: ${err.message}</p>`;
+            });
+        } else {
+          qrResult.innerHTML = `📄 QR berisi teks biasa:<br><strong>${text}</strong>`;
+        }
       }
 
       function startScanner(cameraId) {
@@ -177,7 +204,7 @@
 
       stopBtn.addEventListener("click", stopScanner);
 
-      // Init on load
+      // Init
       window.addEventListener("DOMContentLoaded", initScanner);
     </script>
   </body>
