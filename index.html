@@ -96,10 +96,21 @@
           selectElem.appendChild(opt);
         });
 
-        // Start scanner dengan kamera pertama
-        const firstCameraId = cameras[0].id;
-        selectElem.value = firstCameraId;
-        startScanner(firstCameraId);
+        // Cari kamera belakang
+        let backCamera = cameras.find((cam) =>
+          cam.label.toLowerCase().includes("back")
+        );
+
+        // Jika tidak ketemu, pakai kamera terakhir (biasanya belakang)
+        if (!backCamera && cameras.length > 0) {
+          backCamera = cameras[cameras.length - 1];
+        }
+
+        // Jalankan scanner dengan kamera belakang (default)
+        if (backCamera) {
+          selectElem.value = backCamera.id;
+          startScanner(backCamera.id);
+        }
       });
 
       // Ganti kamera bila select berubah
@@ -112,9 +123,7 @@
           scanner = null;
         }
 
-        setTimeout(() => {
-          startScanner(selectedId);
-        }, 200); // 200ms delay
+        await startScanner(selectedId);
       });
     </script>
   </body>
