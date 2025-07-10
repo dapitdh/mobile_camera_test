@@ -1,24 +1,120 @@
 <!DOCTYPE html>
-<html>
-<head>
-  <title>QR Code Scanner</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-</head>
-<body>
-  <div id="reader" style="width: 300px;"></div>
-  <div id="result"></div>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code Scanner Testing</title>
 
-  <script>
-    function onScanSuccess(decodedText, decodedResult) {
-      // Handle hasil scan
-      document.getElementById('result').innerText = `QR Code: ${decodedText}`;
-      html5QrcodeScanner.clear(); // Stop scanning setelah berhasil
-    }
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-    const html5QrcodeScanner = new Html5QrcodeScanner(
-      "reader", { fps: 30, qrbox: 250 }
-    );
-    html5QrcodeScanner.render(onScanSuccess);
-  </script>
-</body>
+    <!-- html5-qrcode via CDN -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  </head>
+  <body class="min-h-screen p-6 flex flex-col items-center justify-start bg-gray-100">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">QR Code Scanner</h1>
+
+    <!-- QR Scanner Container -->
+    <div id="scanner-container" class="w-full h-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-4 space-y-4">
+      <select
+        id="camera-select"
+        class="hidden w-full p-2 border border-gray-300 rounded text-sm"
+      ></select>
+
+      <div
+        id="reader"
+        class="w-full h-60 rounded-lg overflow-hidden"
+      ></div>
+    </div>
+
+    <!-- Result -->
+    <div
+      id="qr-result"
+      class="hidden mt-4 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded text-sm text-center max-w-md"
+    ></div>
+
+    <script>
+      const cameraSelect = document.getElementById("camera-select");
+      const qrResult = document.getElementById("qr-result");
+      let scanner = null;
+
+      function showResult(text) {
+        qrResult.textContent = `Hasil QR: ${text}`;
+        qrResult.classList.remove("hidden");
+      }
+
+      function startScanner(cameraId) {
+        const html5QrCode = new Html5Qrcode("reader");
+
+        html5QrCode
+          .start(
+            cameraId,
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 },
+            },
+            (decodedText) => {
+              showResult(decodedText);
+              html5QrCode.stop().then(() => html5QrCode.clear());
+            },
+            (error) => {
+              // error handling (optional)
+            }
+          )
+          .then(() => {
+            const video = document.querySelector("#reader video");
+            if (video) {
+              video.style.width = "100%";
+              video.style.height = "100%";
+              video.style.objectFit = "cover";
+            }
+          });
+
+        scanner = html5QrCode;
+      }
+
+      function initScanner() {
+        Html5Qrcode.getCameras()
+          .then((devices) => {
+            if (devices.length === 0) {
+              alert("Tidak ada kamera terdeteksi.");
+              return;
+            }
+
+            if (devices.length > 1) {
+              cameraSelect.classList.remove("hidden");
+              devices.forEach((device) => {
+                const option = document.createElement("option");
+                option.value = device.id;
+                option.textContent = device.label || `Camera ${device.id}`;
+                cameraSelect.appendChild(option);
+              });
+
+              cameraSelect.addEventListener("change", () => {
+                if (scanner) {
+                  scanner.stop().then(() => {
+                    scanner.clear();
+                    startScanner(cameraSelect.value);
+                  });
+                } else {
+                  startScanner(cameraSelect.value);
+                }
+              });
+            } else {
+              cameraSelect.classList.add("hidden");
+            }
+
+            const defaultCameraId = devices[0].id;
+            if (devices.length > 1) cameraSelect.value = defaultCameraId;
+            startScanner(defaultCameraId);
+          })
+          .catch((err) => {
+            console.error("Gagal mendapatkan kamera:", err);
+          });
+      }
+
+      // Inisialisasi scanner setelah DOM ready
+      window.addEventListener("DOMContentLoaded", initScanner);
+    </script>
+  </body>
 </html>
